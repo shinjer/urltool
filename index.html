@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>URL Tool</title>
+<style>
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+th, td {
+  border: 1px solid gray;
+  padding: 5px;
+}
+tr:nth-child(even) {
+  background-color: #ddd;
+}
+.wordbreak {
+  word-break: break-all;
+}
+.checkcell {
+  text-align: center;
+  width: 30px;
+}
+</style>
+</head>
+<body>
+
+<!--
+HTML Symbol Entities Reference
+https://www.w3schools.com/charsets/ref_html_symbols.asp
+↻ &#8635; &#x21bb;
+⟳ &#x27f3;
+🔄 &#x1f504;
+-->
+
+<form onsubmit="return false">
+  <label>URL</label>
+  <input type="text" name="text" oninput="onInputText(this)">
+  <button type="button" onclick="onClickUpdate(form)" style="font-size:20px;">&#x21bb;</button>
+  <table>
+    <thead>
+      <tr><td id="paramsUrl" colspan="3">No URL</td></tr>
+      <tr><td class="checkcell"><input type="checkbox" onchange="onCheckParams(this)"></td><td colspan="2"><b>searchParams</b></td></tr>
+    </thead>
+    <tbody id="paramsTable"/>
+  </table>
+</form>
+<button type="button" id="propsBtn" onclick="showProps(!isPropsVisible)"></button>
+<b>Properties</b>
+<table id="propsTable"></table>
+
+<script>
+const paramsUrlID = "paramsUrl";
+const paramsTableID = "paramsTable";
+const propsTableID = "propsTable";
+const paramCheckPrefix = "param-";
+var currentUrl = null;
+var isPropsVisible = true;
+function onInputText(text){
+  updateUrl(text.value);
+}
+function onClickUpdate(form){
+  updateUrl(form["text"].value);
+}
+function onCheckParams(check){
+  var elements = check.form.elements;
+  for(var i = 0; i < elements.length; i++){
+    var element = elements[i];
+    if(element.name.startsWith(paramCheckPrefix))
+      element.checked = check.checked;
+  }
+  updateParams();
+}
+function updateUrl(text){
+  try{
+    var url = new URL(text);
+    var params = url.searchParams;
+    var paramsTable = document.getElementById(paramsTableID);
+    var oldKeys = new Set();
+    if(currentUrl){
+      var elements = document.forms[0].elements;
+      var oldParams = currentUrl.searchParams;
+      for(const [key, value] of oldParams){
+        var element = elements[paramCheckPrefix + key];
+        if(element && element.checked)
+          oldKeys.add(key);
+      }
+    }
+    paramsTable.innerHTML = "";
+    for(const [key, value] of params){
+      insertParamsRow(paramsTable, key, value, oldKeys);
+    }
+    var propsTable = document.getElementById(propsTableID);
+    var props = ["hash", "host", "hostname", "href", "origin", "pathname", "protocol", "search"];
+    propsTable.innerHTML = "";
+    for(const value of props){
+      insertPropsRow(propsTable, value, url[value]);
+    }
+    currentUrl = url;
+    updateParams();
+  }catch(_){
+  }
+}
+function updateParams(){
+  var url = new URL(currentUrl.href);
+  var params = currentUrl.searchParams;
+  var elements = document.forms[0].elements;
+  for(const [key, value] of params){
+    var element = elements[paramCheckPrefix + key];
+    if(!element || !element.checked)
+      url.searchParams.delete(key);
+  }
+  var paramsUrl = document.getElementById(paramsUrlID);
+  paramsUrl.innerHTML = "";
+  createLink(paramsUrl, url.href);
+}
+function insertParamsRow(table, key, value, oldKeys){
+  var row = table.insertRow(-1);
+  var check = document.createElement("input");
+  check.type = "checkbox";
+  check.name = paramCheckPrefix + key;
+  check.checked = oldKeys.has(key);
+  check.onchange = updateParams;
+  var cell = row.insertCell(0);
+  cell.className = "checkcell";
+  cell.appendChild(check);
+  row.insertCell(1).innerHTML = key;
+  createLink(row.insertCell(2), value);
+}
+function insertPropsRow(table, text1, text2){
+  var row = table.insertRow(-1);
+  row.insertCell(0).innerHTML = text1;
+  createLink(row.insertCell(1), text2);
+}
+function createLink(cell, text){
+  cell.className = "wordbreak";
+  if(text.startsWith("http://") || text.startsWith("https://")){
+    var child = document.createElement("a");
+    child.href = text;
+    child.text = text;
+    cell.appendChild(child);
+  }else{
+    cell.innerHTML = text;
+  }
+}
+function showProps(isVisible){
+  var btn = document.getElementById("propsBtn");
+  btn.innerHTML = isVisible ? "&#x25b2" : "&#x25bc";
+  var propsTable = document.getElementById(propsTableID);
+  propsTable.hidden = !isVisible;
+  isPropsVisible = isVisible;
+}
+onClickUpdate(document.forms[0]);
+showProps(isPropsVisible);
+</script>
+
+</body>
+</html>
+
