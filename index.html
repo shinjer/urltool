@@ -2,7 +2,21 @@
 <html>
 <head>
 <title>URL Tool</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
+.btn-group {
+  display: flex;
+}
+.btn-group button {
+  color: indigo;
+}
+.btn-group button:disabled {
+  color: tomato;
+}
+svg {
+  width: 30px;
+  height: 30px;
+}
 table {
   border-collapse: collapse;
   width: 100%;
@@ -21,6 +35,9 @@ tr:nth-child(even) {
   text-align: center;
   width: 30px;
 }
+.clean-url-box {
+  padding-left: 12px;
+}
 </style>
 </head>
 <body>
@@ -33,125 +50,323 @@ https://www.w3schools.com/charsets/ref_html_symbols.asp
 🔄 &#x1f504;
 -->
 
+<div hidden>
+  <svg>
+    <symbol id="editIcon" fill="currentColor">
+      <g transform="translate(6 30) rotate(30)">
+        <path d="M-4 -10 l8 0 l0 -20 l-8 0 Z"/>
+        <path d="M0 0 l4 -8 l-8 0 Z"/>
+      </g>
+    </symbol>
+    <symbol id="infoIcon" fill="currentColor">
+      <circle cx="15" cy="15" r="12" fill="none" stroke="currentColor" stroke-width="4"/>
+      <circle cx="15" cy="10" r="2"/>
+      <rect x="13" y="14" width="4" height="8"/>
+    </symbol>
+    <symbol id="listIcon" fill="currentColor">
+      <circle cx="6" cy="6" r="3"/><rect x="11" y="3" width="16" height="6"/>
+      <circle cx="6" cy="15" r="3"/><rect x="11" y="12" width="16" height="6"/>
+      <circle cx="6" cy="24" r="3"/><rect x="11" y="21" width="16" height="6"/>
+    </symbol>
+    <symbol id="removeIcon" fill="currentColor">
+        <path d="M4 8 l4 -4 l18 18 l-4 4 Z"/>
+        <path d="M26 8 l-4 -4 l-18 18 l4 4 Z"/>
+    </symbol>
+  </svg>
+</div>
+<div hidden>
+  <button id="tEditButton" type="button">
+    <svg><use href="#editIcon"/></svg>
+  </button>
+  <button type="button">
+    <svg><use href="#infoIcon"/></svg>
+  </button>
+  <button type="button">
+    <svg><use href="#listIcon"/></svg>
+  </button>
+  <button id="tRemoveButton" type="button">
+    <svg><use href="#removeIcon"/></svg>
+  </button>
+</div>
+
+<div class="btn-group">
+  <button id="tabBtn0" type="button" onclick="onClickTab(this)">
+    <svg><use href="#editIcon"/></svg>
+  </button>
+  <button id="tabBtn1" type="button" onclick="onClickTab(this)">
+    <svg><use href="#infoIcon"/></svg>
+  </button>
+  <button id="tabBtn2" type="button" onclick="onClickTab(this)">
+    <svg><use href="#listIcon"/></svg>
+  </button>
+</div>
+
+<div id="panel0">
 <form onsubmit="return false">
-  <label>URL</label>
-  <input type="text" name="text" oninput="onInputText(this)">
-  <button type="button" onclick="onClickUpdate(form)" style="font-size:20px;">&#x21bb;</button>
-  <table>
+  <label for="urlInput">URL</label>
+  <input id="urlInput" type="text" oninput="onInputUrl(this)" autofocus>
+  <button type="button" onclick="onClickUpdate()" style="font-size:20px;">&#x21bb;</button>
+  <div id="paramsEmptyLabel"><b>No URL</b></div>
+  <table id="paramsTable">
     <thead>
-      <tr><td id="paramsUrl" colspan="3">No URL</td></tr>
-      <tr><td class="checkcell"><input type="checkbox" onchange="onCheckParams(this)"></td><td colspan="2"><b>searchParams</b></td></tr>
+      <tr><td id="paramsUrl" class="wordbreak" colspan="3">No URL</td></tr>
+      <tr>
+        <td class="checkcell"><input type="checkbox" onchange="onCheckParams(this)"></td>
+        <td colspan="2"><b>searchParams:</b><b id="paramsCountLabel"></b></td>
+      </tr>
     </thead>
-    <tbody id="paramsTable"/>
+    <tbody/>
   </table>
 </form>
-<button type="button" id="propsBtn" onclick="showProps(!isPropsVisible)"></button>
-<b>Properties</b>
+</div>
+
+<div id="panel1">
+<div id="propsEmptyLabel"><b>No URL</b></div>
 <table id="propsTable"></table>
+</div>
+
+<div id="panel2">
+<div id="urlListEmptyLabel"><b>Empty list</b></div>
+<table id="urlListTable"></table>
+</div>
 
 <script>
-const paramsUrlID = "paramsUrl";
-const paramsTableID = "paramsTable";
-const propsTableID = "propsTable";
+const tabBtnPrefix = "tabBtn";
+const panelPrefix = "panel";
 const paramCheckPrefix = "param-";
-var currentUrl = null;
-var isPropsVisible = true;
-function onInputText(text){
-  updateUrl(text.value);
+const tEditButton = document.getElementById("tEditButton");
+const tRemoveButton = document.getElementById("tRemoveButton");
+const urlInput = document.getElementById("urlInput");
+const paramsEmptyLabel = document.getElementById("paramsEmptyLabel");
+const paramsTable = document.getElementById("paramsTable");
+const paramsUrl = document.getElementById("paramsUrl");
+const paramsCountLabel = document.getElementById("paramsCountLabel");
+const propsEmptyLabel = document.getElementById("propsEmptyLabel");
+const propsTable = document.getElementById("propsTable");
+const urlListEmptyLabel = document.getElementById("urlListEmptyLabel");
+const urlListTable = document.getElementById("urlListTable");
+
+let tabIndex = 0;
+let currentUrl = null;
+let urlList = [];
+
+function onClickTab(btn){
+  let index = getTabBtnIndex(btn);
+  switchTab(index);
 }
-function onClickUpdate(form){
-  updateUrl(form["text"].value);
+function switchTab(index){
+  showTab(tabIndex, false);
+  showTab(index, true);
+  tabIndex = index;
+  if(index == 0){
+    urlInput.focus();
+  }
+}
+function getTabBtnIndex(btn){
+  let str = btn.id.substr(tabBtnPrefix.length);
+  return parseInt(str);
+}
+function showTab(index, visible){
+  let btn = document.getElementById(tabBtnPrefix + index);
+  let panel = document.getElementById(panelPrefix + index);
+  btn.disabled = visible;
+  panel.hidden = !visible;
+}
+function onInputUrl(input){
+  updateUrl(input.value);
+}
+function onClickUpdate(){
+  updateUrl(urlInput.value);
 }
 function onCheckParams(check){
-  var elements = check.form.elements;
-  for(var i = 0; i < elements.length; i++){
-    var element = elements[i];
+  let elements = check.form.elements;
+  for(let i = 0; i < elements.length; i++){
+    let element = elements[i];
     if(element.name.startsWith(paramCheckPrefix))
       element.checked = check.checked;
   }
-  updateParams();
+  updateParamsUrl();
 }
-function updateUrl(text){
+function onClickEdit(link){
+  urlInput.value = link;
+  updateUrl(link);
+  switchTab(0);
+}
+function appendLink(cell, link){
+  let child = document.createElement("a");
+  child.href = link;
+  child.text = link;
+  cell.appendChild(child);
+}
+function appendEditLink(cell, link){
+  let child = tEditButton.cloneNode(true);
+  child.onclick = () => onClickEdit(link);
+  cell.appendChild(child);
+  appendLink(cell, link);
+}
+function getOriginPath(url){
+  return url.origin + url.pathname;
+}
+function isRedirect(url){
+  let path = getOriginPath(url);
+  return (url.origin.includes("google.com") && url.pathname == "/url")
+    || path.endsWith("youtube.com/redirect")
+    || path.endsWith("l.facebook.com/l.php");
+}
+function cleanUrl(url){
+  if(isRedirect(url))
+    return "";
+  let path = getOriginPath(url);
+  if(path.endsWith("youtube.com/watch")){
+    let clean = new URL(path);
+    clean.searchParams.set("v", url.searchParams.get("v"));
+    return clean.href.length != url.href.length ? clean.href : "";
+  }
+  return path;
+}
+function createLinkCell(row, link){
+  let cell = row.insertCell(-1);
+  cell.className = "wordbreak";
   try{
-    var url = new URL(text);
-    var params = url.searchParams;
-    var paramsTable = document.getElementById(paramsTableID);
-    var oldKeys = new Set();
-    if(currentUrl){
-      var elements = document.forms[0].elements;
-      var oldParams = currentUrl.searchParams;
-      for(const [key, value] of oldParams){
-        var element = elements[paramCheckPrefix + key];
-        if(element && element.checked)
-          oldKeys.add(key);
+    let url = new URL(link);
+    appendEditLink(cell, link);
+    if(url.search){
+      let clean = cleanUrl(url);
+      if(clean){
+        cell.appendChild(document.createElement("br"));
+        appendEditLink(cell, clean);
       }
+      let box = document.createElement("div");
+      box.className = "clean-url-box";
+      for(const [key, value] of url.searchParams){
+        try{
+          let url2 = new URL(value);
+          if(box.hasChildNodes())
+            box.appendChild(document.createElement("br"));
+          appendEditLink(box, value);
+          if(url2.search){
+            let clean2 = cleanUrl(url2);
+            if(clean2){
+              box.appendChild(document.createElement("br"));
+              appendEditLink(box, clean2);
+            }
+          }
+        }catch(_){
+        }
+      }
+      if(box.hasChildNodes())
+        cell.appendChild(box);
     }
-    paramsTable.innerHTML = "";
-    for(const [key, value] of params){
-      insertParamsRow(paramsTable, key, value, oldKeys);
-    }
-    var propsTable = document.getElementById(propsTableID);
-    var props = ["hash", "host", "hostname", "href", "origin", "pathname", "protocol", "search"];
-    propsTable.innerHTML = "";
-    for(const value of props){
-      insertPropsRow(propsTable, value, url[value]);
-    }
-    currentUrl = url;
-    updateParams();
   }catch(_){
+    cell.innerHTML = link;
   }
 }
-function updateParams(){
-  var url = new URL(currentUrl.href);
-  var params = currentUrl.searchParams;
-  var elements = document.forms[0].elements;
+function updateUrl(link){
+  try{
+    let url = new URL(link);
+    updateParams(url);
+    updateProps(url);
+    showParams(true);
+    showProps(true);
+    currentUrl = url;
+    updateParamsUrl();
+    addUrl(link);
+  }catch(_){
+    showParams(false);
+    showProps(false);
+  }
+}
+function updateParams(url){
+  let params = url.searchParams;
+  let oldKeys = new Set();
+  if(currentUrl){
+    let elements = urlInput.form.elements;
+    let oldParams = currentUrl.searchParams;
+    for(const [key, value] of oldParams){
+      let element = elements[paramCheckPrefix + key];
+      if(element && element.checked)
+        oldKeys.add(key);
+    }
+  }
+  let table = paramsTable.tBodies[0];
+  table.innerHTML = "";
   for(const [key, value] of params){
-    var element = elements[paramCheckPrefix + key];
+    let row = table.insertRow(-1);
+    let check = document.createElement("input");
+    check.type = "checkbox";
+    check.name = paramCheckPrefix + key;
+    check.checked = oldKeys.has(key);
+    check.onchange = updateParamsUrl;
+    let cell = row.insertCell(0);
+    cell.className = "checkcell";
+    cell.appendChild(check);
+    row.insertCell(1).innerHTML = key;
+    createLinkCell(row, value);
+  }
+  paramsCountLabel.innerHTML = table.rows.length;
+}
+function updateParamsUrl(){
+  let url = new URL(currentUrl.href);
+  let params = currentUrl.searchParams;
+  let elements = urlInput.form.elements;
+  for(const [key, value] of params){
+    let element = elements[paramCheckPrefix + key];
     if(!element || !element.checked)
       url.searchParams.delete(key);
   }
-  var paramsUrl = document.getElementById(paramsUrlID);
   paramsUrl.innerHTML = "";
-  createLink(paramsUrl, url.href);
+  appendLink(paramsUrl, url.href);
 }
-function insertParamsRow(table, key, value, oldKeys){
-  var row = table.insertRow(-1);
-  var check = document.createElement("input");
-  check.type = "checkbox";
-  check.name = paramCheckPrefix + key;
-  check.checked = oldKeys.has(key);
-  check.onchange = updateParams;
-  var cell = row.insertCell(0);
-  cell.className = "checkcell";
-  cell.appendChild(check);
-  row.insertCell(1).innerHTML = key;
-  createLink(row.insertCell(2), value);
+function showParams(visible){
+  paramsEmptyLabel.hidden = visible;
+  paramsTable.hidden = !visible;
 }
-function insertPropsRow(table, text1, text2){
-  var row = table.insertRow(-1);
-  row.insertCell(0).innerHTML = text1;
-  createLink(row.insertCell(1), text2);
-}
-function createLink(cell, text){
-  cell.className = "wordbreak";
-  if(text.startsWith("http://") || text.startsWith("https://")){
-    var child = document.createElement("a");
-    child.href = text;
-    child.text = text;
-    cell.appendChild(child);
-  }else{
-    cell.innerHTML = text;
+function updateProps(url){
+  let props = ["hash", "host", "hostname", "href", "origin", "pathname", "protocol", "search"];
+  propsTable.innerHTML = "";
+  for(const prop of props){
+    let row = propsTable.insertRow(-1);
+    row.insertCell(0).innerHTML = prop;
+    createLinkCell(row, url[prop]);
   }
 }
-function showProps(isVisible){
-  var btn = document.getElementById("propsBtn");
-  btn.innerHTML = isVisible ? "&#x25b2" : "&#x25bc";
-  var propsTable = document.getElementById(propsTableID);
-  propsTable.hidden = !isVisible;
-  isPropsVisible = isVisible;
+function showProps(visible){
+  propsEmptyLabel.hidden = visible;
+  propsTable.hidden = !visible;
 }
-onClickUpdate(document.forms[0]);
-showProps(isPropsVisible);
+function addUrl(url){
+  let index = urlList.indexOf(url);
+  if(index >= 0){
+    urlList.splice(index, 1);
+  }
+  urlList.unshift(url);
+  updateUrlList();
+}
+function removeUrl(index){
+  urlList.splice(index, 1);
+  updateUrlList();
+}
+function updateUrlList(){
+  let table = urlListTable;
+  table.innerHTML = "";
+  table.hidden = urlList.length == 0;
+  urlListEmptyLabel.hidden = !table.hidden;
+  for(let i = 0; i < urlList.length; i++){
+    let row = table.insertRow(-1);
+    let cell = row.insertCell(-1);
+    let child = tRemoveButton.cloneNode(true);
+    child.onclick = () => removeUrl(i);
+    cell.appendChild(child);
+    createLinkCell(row, urlList[i]);
+  }
+}
+let children = document.getElementById(tabBtnPrefix + tabIndex).parentElement.children;
+for(let i = 0; i < children.length; i++){
+  let index = getTabBtnIndex(children[i]);
+  showTab(index, index == tabIndex);
+}
+updateUrlList();
+onClickUpdate();
 </script>
 
 </body>
